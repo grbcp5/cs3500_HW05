@@ -1,0 +1,7 @@
+(let* ((x 5) (y 7) (z 3))
+  (
+    (print z)
+    (if (- x 5) 1 (print y))
+  )
+)
+
