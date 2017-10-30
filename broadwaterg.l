@@ -1,8 +1,3 @@
-/*    mfpl.l
- 
- 	Specifications of tokens for the MFPL language.
- */
-
 %{
 
 %}

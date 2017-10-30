@@ -415,11 +415,17 @@ void cleanUp() {
   }
 }
 
-int main() {
-  do {
-	yyparse();
-  } while (!feof(yyin));
+int main( int argc, char** argv ) {
 
-  cleanUp();
+  if( argc < 2 ) {
+    printf( "Usage: mfpl <input file>" );
+    return 1;
+  }
+
+  yyin = fopen( argv[ 1 ], "r" );
+  do {
+    yyparse();
+  } while( !feof( yyin ) );
+
   return 0;
 }
