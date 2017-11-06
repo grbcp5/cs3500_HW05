@@ -97,10 +97,12 @@ COMMENT           ";".*$
 			}
 "t"			{
 			printf("TOKEN: T         LEXEME: %s\n", yytext);
+      yylval.boolVal = true;
 			return T_T;
 			}
 "nil"			{
 			printf("TOKEN: NIL       LEXEME: %s\n", yytext);
+      yylval.boolVal = false;
 			return T_NIL;
 			}
 "and"			{
@@ -117,10 +119,12 @@ COMMENT           ";".*$
 			}
 {INTCONST}	     {
 			printf("TOKEN: INTCONST  LEXEME: %s\n", yytext);
+      yylval.intVal = atoi( yytext );
 			return T_INTCONST;
 			}
 {STRCONST}	     {
 			printf("TOKEN: STRCONST  LEXEME: %s\n", yytext);
+      yylval.strVal = strdup( yytext );
 			return T_STRCONST;
 			}
 {IDENT}		{

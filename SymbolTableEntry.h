@@ -16,8 +16,15 @@ using namespace std;
    
 #define NOT_APPLICABLE 	-1
 
+typedef union {
+  int intVal;
+  bool boolVal;
+  char* strVal;
+} value;
+
 typedef struct { 
   int type;       // one of the above type codes
+  value val;
 } TYPE_INFO;
 
 class SYMBOL_TABLE_ENTRY {
@@ -35,7 +42,16 @@ public:
 
   SYMBOL_TABLE_ENTRY(const string theName, const TYPE_INFO theType) {
     name = theName;
-    typeInfo.type = theType.type;
+    typeInfo = theType;
+
+    // Deep copy
+    if( typeInfo.type == STR ) {
+
+      string temp( theType.val.strVal );
+      typeInfo.strVal temp.c_str();
+
+    }
+
   }
 
   // Accessors
