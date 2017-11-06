@@ -41,8 +41,8 @@ using namespace std;
 
 typedef struct {
   int type;
-  int operator;
-} operator;
+  int op;
+} op;
 
 int lineNum = 1;
 
@@ -76,8 +76,7 @@ extern "C" {
   char* text;
   int num;
   TYPE_INFO typeInfo;
-  value val;
-  operator op;
+  op anOperator;
 };
 
 /*
@@ -93,8 +92,9 @@ extern "C" {
 %type <typeInfo> N_EXPR N_PARENTHESIZED_EXPR N_ARITHLOGIC_EXPR  
 %type <typeInfo> N_CONST N_IF_EXPR N_PRINT_EXPR N_INPUT_EXPR 
 %type <typeInfo> N_LET_EXPR N_EXPR_LIST  
-%type <op> N_BIN_OP N_ARITH_OP N_REL_OP N_LOG_OP
-%type <val> T_INTCONST T_STRCONST T_T T_NIL
+%type <anOperator> N_BIN_OP N_ARITH_OP N_REL_OP N_LOG_OP
+%type <num> T_INTCONST 
+%type <text> T_STRCONST 
 
 /*
  *	Starting point.
@@ -155,13 +155,13 @@ N_CONST		: T_INTCONST
 			{
 			printRule("CONST", "INTCONST");
                 	$$.type = INT; 
-                  $$.val.intVal = $1.intVal;
+                  $$.val.intVal = $1;
 			}
                 | T_STRCONST
 			{
 			printRule("CONST", "STRCONST");
                 	$$.type = STR; 
-                  $$.val.strVal = $1.strVal;
+                  $$.val.strVal = $1;
 			}
                 | T_T
                 {
@@ -233,7 +233,7 @@ N_ARITHLOGIC_EXPR	: N_UN_OP N_EXPR
 				printRule("ARITHLOGIC_EXPR", 
 				          "BIN_OP EXPR EXPR");
                       $$.type = BOOL;
-                      switch ($1)
+                      switch ($1.type)
                       {
                       case (ARITHMETIC_OP) :
                         $$.type = INT;
@@ -246,10 +246,10 @@ N_ARITHLOGIC_EXPR	: N_UN_OP N_EXPR
                           return(0);
                      	  }
 
-          switch( $1.operator ) {
+          switch( $1.op ) {
           
           case ADD:
- $$.val.intval = $2.val.intVal + $3.val.intVal;
+ $$.val.intVal = $2.val.intVal + $3.val.intVal;
 break;
 
 case SUB:
@@ -261,7 +261,11 @@ $$.val.intVal = $2.val.intVal * $3.val.intVal;
 break;
 
 case DIV:
-$$.val.intVal = $2.val.intVal / $3.val.intval;
+if( $3.val.intVal == 0 ) {
+  yyerror( "Attempted division by zero" );
+  return 1;
+}
+$$.val.intVal = $2.val.intVal / $3.val.intVal;
 break;
 
           }
@@ -270,27 +274,34 @@ break;
 
 				case (LOGICAL_OP) :
 
-switch( $1.operator ) {
+switch( $1.op ) {
 
 case AND:
 
-  if( !( $2.type & bool ) || !( $3.type & bool ) ) {
+  if( ( $2.type & BOOL ) && !$2.val.boolVal ) {
+    $$.val.boolVal = false;
+  } else if ( ( $3.type & BOOL ) && !$3.val.boolVal ) {
     $$.val.boolVal = false;
   } else {
-
-    $$.val.boolVal = $2.val.boolVal && $3.val.boolVal;
-
+    $$.val.boolVal = true;
   }
 
   break;
 case OR:
-  if( !( $2.type & bool ) || !( $3.type & bool ) ) {
-    $$.val.boolVal = false;
-  } else {
+  bool v1;
+  bool v2;
+  
+  v1 = true;
+  v2 = true;
 
-    $$.val.boolVal = $2.val.boolVal || $3.val.boolVal;
-
+  if( ( $2.type & BOOL ) && !$2.val.boolVal ) {
+    v1 = false;
   }
+  if( ( $3.type & BOOL ) && !$3.val.boolVal ) {
+    v2 = false;
+  }
+  
+  $$.val.boolVal = v1 || v2;
 
 
   break;
@@ -318,7 +329,7 @@ case OR:
                                return(0);
                              }
 
-switch( $1.operator ) {
+switch( $1.op ) {
 
 case GT:
   if( ( $2.type & STR ) && ( $3.type & STR ) ) {
@@ -376,12 +387,12 @@ N_IF_EXPR    	: T_IF N_EXPR N_EXPR N_EXPR
 			{
 			printRule("IF_EXPR", "if EXPR EXPR EXPR");
       
-if( $2.val.boolVal ) {
+if( ( $2.type & BOOL ) && !$2.val.boolVal ) {
+  $$.type = $4.type;
+  $$.val = $4.val;
+} else {
   $$.type = $3.type;
   $$.val = $3.val;
-} else {
-  $$.type = $4.type;
-  $$.type = $4.val;
 }
  
 			}
@@ -428,6 +439,7 @@ N_PRINT_EXPR    : T_PRINT N_EXPR
       } else { // type == str
         printf( "%s\n", $2.val.strVal );
       }
+      }
 			;
 N_INPUT_EXPR    : T_INPUT
 			{
@@ -440,7 +452,7 @@ if( input[0] == '-' || input[0] == '+' ) {
   $$.val.intVal = atoi( input.c_str() );
 } else {
   $$.type = STR;
-  $$.val.strVal = input.c_str();
+  strcpy( $$.val.strVal, input.c_str() );
 }
 			}
 			;
@@ -460,82 +472,82 @@ N_EXPR_LIST     : N_EXPR N_EXPR_LIST
 N_BIN_OP	     : N_ARITH_OP
 			{
 			printRule("BIN_OP", "ARITH_OP");
-			$$ = ARITHMETIC_OP;
+			$$.type = ARITHMETIC_OP;
 			}
 			|
 			N_LOG_OP
 			{
 			printRule("BIN_OP", "LOG_OP");
-			$$ = LOGICAL_OP;
+			$$.type  = LOGICAL_OP;
 			}
 			|
 			N_REL_OP
 			{
 			printRule("BIN_OP", "REL_OP");
-			$$ = RELATIONAL_OP;
+			$$.type  = RELATIONAL_OP;
 			}
 			;
 N_ARITH_OP	     : T_ADD
 			{
 			printRule("ARITH_OP", "+");
-      $$.operator = ADD;
+      $$.op = ADD;
 			}
                 | T_SUB
 			{
 			printRule("ARITH_OP", "-");
-      $$.operator = SUB;
+      $$.op = SUB;
 			}
 			| T_MULT
 			{
 			printRule("ARITH_OP", "*");
-      $$.operator = MUL;
+      $$.op = MUL;
 			}
 			| T_DIV
 			{
 			printRule("ARITH_OP", "/");
-      $$.operator = DIV;
+      $$.op = DIV;
 			}
 			;
 N_REL_OP	     : T_LT
 			{
 			printRule("REL_OP", "<");  
-      operator = LT;
+      $$.op = LT;
 			}	
 			| T_GT
 			{
 			printRule("REL_OP", ">");    
-      operator = GT; 
+      $$.op = GT; 
 			}	
 			| T_LE
 			{
 			printRule("REL_OP", "<=");  
-      operator = LE; 
+      $$.op = LE; 
 			}	
 			| T_GE
 			{
 			printRule("REL_OP", ">=");  
-      operator = GE; 
+      $$.op = GE; 
 			}	
 			| T_EQ
 			{
 			printRule("REL_OP", "=");  
-      operator = EQ;
+      $$.op = EQ;
 			}	
 			| T_NE
 			{
 			printRule("REL_OP", "/=");  
-      operator = NE; 
+      $$.op = NE; 
 			}
 			;	
 N_LOG_OP	     : T_AND
 			{
 			printRule("LOG_OP", "and");  
-      operator = AND;
+      $$.op = AND;
 			}	
 			| T_OR
 			{
 			printRule("LOG_OP", "or");  
-      operator = OR; 
+      $$.op = OR; 
 			}
 			;
 N_UN_OP	     : T_NOT
@@ -603,7 +615,7 @@ void cleanUp() {
   }
 }
 
-int main() {
+int main( int argc, char** argv ) {
   if( argc < 2 ) {
     printf( "Usage: mfpl <input file>" );
     return 1;

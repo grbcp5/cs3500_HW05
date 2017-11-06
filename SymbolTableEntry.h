@@ -2,6 +2,7 @@
 #define SYMBOL_TABLE_ENTRY_H
 
 #include <string>
+#include <cstring>
 using namespace std;
 
 #define UNDEFINED  			-1   // Type codes
@@ -43,14 +44,6 @@ public:
   SYMBOL_TABLE_ENTRY(const string theName, const TYPE_INFO theType) {
     name = theName;
     typeInfo = theType;
-
-    // Deep copy
-    if( typeInfo.type == STR ) {
-
-      string temp( theType.val.strVal );
-      typeInfo.strVal temp.c_str();
-
-    }
 
   }
 
